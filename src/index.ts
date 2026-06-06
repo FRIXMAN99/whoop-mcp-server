@@ -6,6 +6,7 @@ import express, { type Request, type Response } from 'express';
 import { WhoopClient } from './whoop-client.js';
 import { WhoopDatabase } from './database.js';
 import { WhoopSync } from './sync.js';
+import { installOAuth } from './oauth.js';
 
 interface ToolArguments {
 	days?: number;
@@ -342,6 +343,7 @@ async function main(): Promise<void> {
 	} else {
 		const app = express();
 		app.use(express.json());
+		installOAuth(app);
 
 		app.get('/callback', async (req: Request, res: Response) => {
 			const code = req.query.code as string | undefined;
