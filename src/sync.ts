@@ -72,7 +72,7 @@ export class WhoopSync {
 		const state = this.db.getSyncState();
 
 		if (!state.lastSyncAt) {
-			const stats = await this.syncDays(90);
+			const stats = await this.syncDays(1095);
 			return { type: 'full', stats };
 		}
 
