@@ -130,3 +130,5 @@ This server uses the following Whoop API v2 endpoints:
 ## License
 
 MIT - See [LICENSE](LICENSE) for details.
+
+
