@@ -41,6 +41,18 @@ function pkceOk(verifier: string, challenge: string): boolean {
 
 export function installOAuth(app: Express): void {
 	app.use(express.urlencoded({ extended: true }));
+	app.use((req: Request, res: Response, next: NextFunction) => {
+		res.on('finish', () => {
+			let extra = '';
+			if (req.method === 'POST' && (req.path === '/register' || req.path === '/token')) {
+				try { extra = ' body=' + JSON.stringify(req.body); } catch { extra = ''; }
+			} else if (req.method === 'GET' && req.path === '/authorize') {
+				extra = ' query=' + JSON.stringify(req.query);
+			}
+			console.log('[oauth] ' + req.method + ' ' + req.originalUrl + ' -> ' + res.statusCode + extra);
+		});
+		next();
+	});
 
 	const meta = {
 		issuer: BASE,
