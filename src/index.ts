@@ -324,8 +324,9 @@ function createMcpServer(): Server {
             response += `- **Elevation gain**: ${Math.round(w.altitude_gain_meter)} m\n`;
           }
           response += `- **Time in HR zones (min)**: Z1 ${mins(w.zone_one_milli)} · Z2 ${mins(w.zone_two_milli)} · Z3 ${mins(w.zone_three_milli)} · Z4 ${mins(w.zone_four_milli)} · Z5 ${mins(w.zone_five_milli)}\n`;
-          if (w.percent_recorded != null && w.percent_recorded < 100) {
-            response += `- _Data coverage: ${Math.round(w.percent_recorded)}%_\n`;
+const cov = w.percent_recorded != null ? (w.percent_recorded <= 1 ? w.percent_recorded * 100 : w.percent_recorded) : null;
+          if (cov != null && cov < 99.5) {
+            response += `- _Data coverage: ${Math.round(cov)}%_\n`;
           }
           response += `\n`;
         }
