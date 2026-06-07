@@ -134,6 +134,15 @@ function createMcpServer(): Server {
 				},
 			},
 			{
+        name: 'get_workouts',
+        description: 'List individual workouts/runs with per-session strain, heart rate, calories, and time spent in each HR zone.',
+        inputSchema: {
+          type: 'object',
+          properties: { days: { type: 'number', description: 'Number of days to look back (default: 14, max: 90)' } },
+          required: [],
+        },
+      },
+			{
 				name: 'sync_data',
 				description: 'Manually trigger a data sync from Whoop.',
 				inputSchema: {
@@ -283,6 +292,37 @@ function createMcpServer(): Server {
 					return { content: [{ type: 'text', text: response }] };
 				}
 
+				case 'get_workouts': {
+        const days = validateDays(typedArgs.days);
+        const workouts = db.getWorkouts(days);
+
+        if (workouts.length === 0) {
+          return { content: [{ type: 'text', text: 'No workouts found for that period. Try running sync_data first.' }] };
+        }
+
+        const sportName = (id: number): string => {
+          const map: Record<number, string> = {
+            0: 'Running', 1: 'Cycling', 18: 'Rowing', 22: 'Hiking', 24: 'Swimming',
+            33: 'Walking', 45: 'Weightlifting', 48: 'Functional Fitness', 52: 'HIIT',
+          };
+          return map[id] ?? `Sport #${id}`;
+        };
+        const mins = (milli: number | null): string => milli ? (milli / 60000).toFixed(0) : '0';
+
+        let response = `# Workouts (Last ${days} Days)\n\n`;
+        for (const w of workouts) {
+          const durMin = Math.round((new Date(w.end_time).getTime() - new Date(w.start_time).getTime()) / 60000);
+          const cal = w.kilojoule != null ? Math.round(w.kilojoule / 4.184) : null;
+          response += `## ${formatDate(w.start_time)} — ${sportName(w.sport_id)}\n`;
+          response += `- **Duration**: ${durMin} min\n`;
+          response += `- **Strain**: ${w.strain != null ? w.strain.toFixed(1) : 'N/A (pending score)'}\n`;
+          response += `- **Avg / Max HR**: ${w.avg_hr ?? 'N/A'} / ${w.max_hr ?? 'N/A'} bpm\n`;
+          response += `- **Calories**: ${cal ?? 'N/A'} kcal\n`;
+          response += `- **Time in HR zones (min)**: Z1 ${mins(w.zone_one_milli)} · Z2 ${mins(w.zone_two_milli)} · Z3 ${mins(w.zone_three_milli)} · Z4 ${mins(w.zone_four_milli)} · Z5 ${mins(w.zone_five_milli)}\n\n`;
+        }
+
+        return { content: [{ type: 'text', text: response }] };
+      }
 				case 'sync_data': {
 					const tokens = db.getTokens();
 					if (!tokens) {
