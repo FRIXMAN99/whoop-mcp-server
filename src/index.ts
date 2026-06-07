@@ -292,7 +292,7 @@ function createMcpServer(): Server {
 					return { content: [{ type: 'text', text: response }] };
 				}
 
-				case 'get_workouts': {
+		case 'get_workouts': {
         const days = validateDays(typedArgs.days);
         const workouts = db.getWorkouts(days);
 
@@ -300,25 +300,34 @@ function createMcpServer(): Server {
           return { content: [{ type: 'text', text: 'No workouts found for that period. Try running sync_data first.' }] };
         }
 
-        const sportName = (id: number): string => {
-          const map: Record<number, string> = {
-            0: 'Running', 1: 'Cycling', 18: 'Rowing', 22: 'Hiking', 24: 'Swimming',
-            33: 'Walking', 45: 'Weightlifting', 48: 'Functional Fitness', 52: 'HIIT',
-          };
-          return map[id] ?? `Sport #${id}`;
-        };
         const mins = (milli: number | null): string => milli ? (milli / 60000).toFixed(0) : '0';
+        const cap = (s: string | null): string => s ? s.charAt(0).toUpperCase() + s.slice(1) : 'Workout';
 
         let response = `# Workouts (Last ${days} Days)\n\n`;
         for (const w of workouts) {
           const durMin = Math.round((new Date(w.end_time).getTime() - new Date(w.start_time).getTime()) / 60000);
           const cal = w.kilojoule != null ? Math.round(w.kilojoule / 4.184) : null;
-          response += `## ${formatDate(w.start_time)} — ${sportName(w.sport_id)}\n`;
+          const km = w.distance_meter != null ? w.distance_meter / 1000 : null;
+          response += `## ${formatDate(w.start_time)} — ${cap(w.sport_name)}\n`;
           response += `- **Duration**: ${durMin} min\n`;
+          if (km != null && km > 0) {
+            const paceSecPerKm = (durMin * 60) / km;
+            const pMin = Math.floor(paceSecPerKm / 60);
+            const pSec = Math.round(paceSecPerKm % 60).toString().padStart(2, '0');
+            response += `- **Distance**: ${km.toFixed(2)} km\n`;
+            response += `- **Pace**: ${pMin}:${pSec} /km\n`;
+          }
           response += `- **Strain**: ${w.strain != null ? w.strain.toFixed(1) : 'N/A (pending score)'}\n`;
           response += `- **Avg / Max HR**: ${w.avg_hr ?? 'N/A'} / ${w.max_hr ?? 'N/A'} bpm\n`;
           response += `- **Calories**: ${cal ?? 'N/A'} kcal\n`;
-          response += `- **Time in HR zones (min)**: Z1 ${mins(w.zone_one_milli)} · Z2 ${mins(w.zone_two_milli)} · Z3 ${mins(w.zone_three_milli)} · Z4 ${mins(w.zone_four_milli)} · Z5 ${mins(w.zone_five_milli)}\n\n`;
+          if (w.altitude_gain_meter != null && w.altitude_gain_meter > 0) {
+            response += `- **Elevation gain**: ${Math.round(w.altitude_gain_meter)} m\n`;
+          }
+          response += `- **Time in HR zones (min)**: Z1 ${mins(w.zone_one_milli)} · Z2 ${mins(w.zone_two_milli)} · Z3 ${mins(w.zone_three_milli)} · Z4 ${mins(w.zone_four_milli)} · Z5 ${mins(w.zone_five_milli)}\n`;
+          if (w.percent_recorded != null && w.percent_recorded < 100) {
+            response += `- _Data coverage: ${Math.round(w.percent_recorded)}%_\n`;
+          }
+          response += `\n`;
         }
 
         return { content: [{ type: 'text', text: response }] };
