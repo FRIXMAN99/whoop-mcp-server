@@ -124,25 +124,29 @@ export class WhoopDatabase {
 			);
 
 			CREATE TABLE IF NOT EXISTS workouts (
-				id TEXT PRIMARY KEY,
-				user_id INTEGER NOT NULL,
-				sport_id INTEGER NOT NULL,
-				start_time TEXT NOT NULL,
-				end_time TEXT NOT NULL,
-				score_state TEXT NOT NULL,
-				strain REAL,
-				avg_hr INTEGER,
-				max_hr INTEGER,
-				kilojoule REAL,
-				zone_zero_milli INTEGER,
-				zone_one_milli INTEGER,
-				zone_two_milli INTEGER,
-				zone_three_milli INTEGER,
-				zone_four_milli INTEGER,
-				zone_five_milli INTEGER,
-				synced_at TEXT DEFAULT CURRENT_TIMESTAMP
-			);
-
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    sport_id INTEGER,
+    sport_name TEXT,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    score_state TEXT NOT NULL,
+    strain REAL,
+    avg_hr INTEGER,
+    max_hr INTEGER,
+    kilojoule REAL,
+    percent_recorded REAL,
+    distance_meter REAL,
+    altitude_gain_meter REAL,
+    altitude_change_meter REAL,
+    zone_zero_milli INTEGER,
+    zone_one_milli INTEGER,
+    zone_two_milli INTEGER,
+    zone_three_milli INTEGER,
+    zone_four_milli INTEGER,
+    zone_five_milli INTEGER,
+    synced_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 			CREATE INDEX IF NOT EXISTS idx_cycles_start ON cycles(start_time);
 			CREATE INDEX IF NOT EXISTS idx_recovery_created ON recovery(created_at);
 			CREATE INDEX IF NOT EXISTS idx_sleep_start ON sleep(start_time);
@@ -296,41 +300,46 @@ export class WhoopDatabase {
 	}
 
 	upsertWorkouts(workouts: WhoopWorkout[]): void {
-		const stmt = this.db.prepare(`
-			INSERT OR REPLACE INTO workouts (
-				id, user_id, sport_id, start_time, end_time, score_state,
-				strain, avg_hr, max_hr, kilojoule,
-				zone_zero_milli, zone_one_milli, zone_two_milli, zone_three_milli, zone_four_milli, zone_five_milli,
-				synced_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-		`);
+    const stmt = this.db.prepare(`
+      INSERT OR REPLACE INTO workouts (
+        id, user_id, sport_id, sport_name, start_time, end_time, score_state,
+        strain, avg_hr, max_hr, kilojoule, percent_recorded,
+        distance_meter, altitude_gain_meter, altitude_change_meter,
+        zone_zero_milli, zone_one_milli, zone_two_milli, zone_three_milli, zone_four_milli, zone_five_milli,
+        synced_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `);
 
-		const insertMany = this.db.transaction((items: WhoopWorkout[]) => {
-			for (const w of items) {
-				stmt.run(
-					w.id,
-					w.user_id,
-					w.sport_id,
-					w.start,
-					w.end,
-					w.score_state,
-					w.score?.strain ?? null,
-					w.score?.average_heart_rate ?? null,
-					w.score?.max_heart_rate ?? null,
-					w.score?.kilojoule ?? null,
-					w.score?.zone_duration?.zone_zero_milli ?? null,
-					w.score?.zone_duration?.zone_one_milli ?? null,
-					w.score?.zone_duration?.zone_two_milli ?? null,
-					w.score?.zone_duration?.zone_three_milli ?? null,
-					w.score?.zone_duration?.zone_four_milli ?? null,
-					w.score?.zone_duration?.zone_five_milli ?? null
-				);
-			}
-		});
+    const insertMany = this.db.transaction((items: WhoopWorkout[]) => {
+      for (const w of items) {
+        stmt.run(
+          w.id,
+          w.user_id,
+          w.sport_id ?? null,
+          w.sport_name ?? null,
+          w.start,
+          w.end,
+          w.score_state,
+          w.score?.strain ?? null,
+          w.score?.average_heart_rate ?? null,
+          w.score?.max_heart_rate ?? null,
+          w.score?.kilojoule ?? null,
+          w.score?.percent_recorded ?? null,
+          w.score?.distance_meter ?? null,
+          w.score?.altitude_gain_meter ?? null,
+          w.score?.altitude_change_meter ?? null,
+          w.score?.zone_durations?.zone_zero_milli ?? null,
+          w.score?.zone_durations?.zone_one_milli ?? null,
+          w.score?.zone_durations?.zone_two_milli ?? null,
+          w.score?.zone_durations?.zone_three_milli ?? null,
+          w.score?.zone_durations?.zone_four_milli ?? null,
+          w.score?.zone_durations?.zone_five_milli ?? null
+        );
+      }
+    });
 
-		insertMany(workouts);
-	}
-
+    insertMany(workouts);
+  }
 	getLatestCycle(): DbCycle | null {
 		return this.db.prepare('SELECT * FROM cycles ORDER BY start_time DESC LIMIT 1').get() as DbCycle | undefined ?? null;
 	}
@@ -397,28 +406,31 @@ export class WhoopDatabase {
 		`).all(days) as StrainTrendRow[];
 	}
 getWorkouts(days: number): Array<{
-    id: string; sport_id: number; start_time: string; end_time: string;
-    score_state: string; strain: number | null; avg_hr: number | null;
-    max_hr: number | null; kilojoule: number | null;
-    zone_one_milli: number | null; zone_two_milli: number | null;
-    zone_three_milli: number | null; zone_four_milli: number | null;
-    zone_five_milli: number | null;
+    id: string; sport_id: number | null; sport_name: string | null;
+    start_time: string; end_time: string; score_state: string;
+    strain: number | null; avg_hr: number | null; max_hr: number | null;
+    kilojoule: number | null; percent_recorded: number | null;
+    distance_meter: number | null; altitude_gain_meter: number | null; altitude_change_meter: number | null;
+    zone_one_milli: number | null; zone_two_milli: number | null; zone_three_milli: number | null;
+    zone_four_milli: number | null; zone_five_milli: number | null;
   }> {
     return this.db.prepare(`
-      SELECT id, sport_id, start_time, end_time, score_state, strain,
-             avg_hr, max_hr, kilojoule,
+      SELECT id, sport_id, sport_name, start_time, end_time, score_state, strain,
+             avg_hr, max_hr, kilojoule, percent_recorded,
+             distance_meter, altitude_gain_meter, altitude_change_meter,
              zone_one_milli, zone_two_milli, zone_three_milli,
              zone_four_milli, zone_five_milli
       FROM workouts
       WHERE start_time >= DATE('now', '-' || ? || ' days')
       ORDER BY start_time DESC
     `).all(days) as Array<{
-      id: string; sport_id: number; start_time: string; end_time: string;
-      score_state: string; strain: number | null; avg_hr: number | null;
-      max_hr: number | null; kilojoule: number | null;
-      zone_one_milli: number | null; zone_two_milli: number | null;
-      zone_three_milli: number | null; zone_four_milli: number | null;
-      zone_five_milli: number | null;
+      id: string; sport_id: number | null; sport_name: string | null;
+      start_time: string; end_time: string; score_state: string;
+      strain: number | null; avg_hr: number | null; max_hr: number | null;
+      kilojoule: number | null; percent_recorded: number | null;
+      distance_meter: number | null; altitude_gain_meter: number | null; altitude_change_meter: number | null;
+      zone_one_milli: number | null; zone_two_milli: number | null; zone_three_milli: number | null;
+      zone_four_milli: number | null; zone_five_milli: number | null;
     }>;
   }
 	close(): void {
