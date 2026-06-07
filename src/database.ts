@@ -318,12 +318,12 @@ export class WhoopDatabase {
 					w.score?.average_heart_rate ?? null,
 					w.score?.max_heart_rate ?? null,
 					w.score?.kilojoule ?? null,
-					w.score?.zone_duration.zone_zero_milli ?? null,
-					w.score?.zone_duration.zone_one_milli ?? null,
-					w.score?.zone_duration.zone_two_milli ?? null,
-					w.score?.zone_duration.zone_three_milli ?? null,
-					w.score?.zone_duration.zone_four_milli ?? null,
-					w.score?.zone_duration.zone_five_milli ?? null
+					w.score?.zone_duration?.zone_zero_milli ?? null,
+					w.score?.zone_duration?.zone_one_milli ?? null,
+					w.score?.zone_duration?.zone_two_milli ?? null,
+					w.score?.zone_duration?.zone_three_milli ?? null,
+					w.score?.zone_duration?.zone_four_milli ?? null,
+					w.score?.zone_duration?.zone_five_milli ?? null
 				);
 			}
 		});
@@ -396,7 +396,31 @@ export class WhoopDatabase {
 			ORDER BY start_time DESC
 		`).all(days) as StrainTrendRow[];
 	}
-
+getWorkouts(days: number): Array<{
+    id: string; sport_id: number; start_time: string; end_time: string;
+    score_state: string; strain: number | null; avg_hr: number | null;
+    max_hr: number | null; kilojoule: number | null;
+    zone_one_milli: number | null; zone_two_milli: number | null;
+    zone_three_milli: number | null; zone_four_milli: number | null;
+    zone_five_milli: number | null;
+  }> {
+    return this.db.prepare(`
+      SELECT id, sport_id, start_time, end_time, score_state, strain,
+             avg_hr, max_hr, kilojoule,
+             zone_one_milli, zone_two_milli, zone_three_milli,
+             zone_four_milli, zone_five_milli
+      FROM workouts
+      WHERE start_time >= DATE('now', '-' || ? || ' days')
+      ORDER BY start_time DESC
+    `).all(days) as Array<{
+      id: string; sport_id: number; start_time: string; end_time: string;
+      score_state: string; strain: number | null; avg_hr: number | null;
+      max_hr: number | null; kilojoule: number | null;
+      zone_one_milli: number | null; zone_two_milli: number | null;
+      zone_three_milli: number | null; zone_four_milli: number | null;
+      zone_five_milli: number | null;
+    }>;
+  }
 	close(): void {
 		this.db.close();
 	}
